@@ -68,6 +68,14 @@ async function fetchRealMatches() {
         
         const doubleChance = toDoubleChanceOdds({ homeOdd, drawOdd, awayOdd })
         
+        // Determine best pick (lowest odd = highest probability)
+        const picks = [
+          { name: '1X', odd: doubleChance['1X'] },
+          { name: 'X2', odd: doubleChance['X2'] },
+          { name: '12', odd: doubleChance['12'] }
+        ]
+        const bestPick = picks.reduce((min, p) => p.odd < min.odd ? p : min).name
+        
         allMatches.push({
           provider_match_id: match.id,
           home: match.home_team,
@@ -76,8 +84,9 @@ async function fetchRealMatches() {
           kickoff: match.commence_time,
           status: 'pending',
           confidence: Math.floor(Math.random() * 9) + 84, // 84-92%
-          tip: ['1X', 'X2', '12'][Math.floor(Math.random() * 3)],
+          tip: bestPick,
           double_chance: doubleChance,
+          best_pick: bestPick,
           bookmaker: bookmaker.title
         })
       }

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS matches (
   confidence INTEGER DEFAULT 84,
   tip VARCHAR(50),
   double_chance JSONB NOT NULL,
+  best_pick VARCHAR(10),
   bookmaker VARCHAR(100),
   final_score VARCHAR(20),
   result VARCHAR(50),
