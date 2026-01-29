@@ -1,0 +1,47 @@
+# .github/workflows/daily-fetch.yml
+# GitHub Actions workflow for automated daily match fetching
+# This is a FREE alternative to Vercel Cron
+
+name: Daily Match Fetch
+
+on:
+  # Run every day at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+jobs:
+  fetch-matches:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger match fetch
+        run: |
+          response=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP_STATUS:%{http_code}" \
+            ${{ secrets.API_URL }}/api/scheduler/fetch-daily)
+          
+          http_status=$(echo "$response" | grep HTTP_STATUS | cut -d':' -f2)
+          
+          if [ "$http_status" -ne 200 ]; then
+            echo "Error: API returned status $http_status"
+            exit 1
+          fi
+          
+          echo "Success! Match fetch completed."
+          echo "$response" | grep -v HTTP_STATUS
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Daily match fetch failed!"
+          echo "Check your API endpoint and credentials."
+
+# Setup instructions:
+# 1. Go to your GitHub repo → Settings → Secrets and variables → Actions
+# 2. Add secret: API_URL = https://your-app.vercel.app
+# 3. This workflow will run automatically every day
+# 4. You can also trigger manually from the Actions tab

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreemiumOdds V2 - Setup Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #4F46E5 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #635BFF 0%, #00D924 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #1E293B;
+            margin: 30px 0 15px;
+            font-size: 1.5rem;
+        }
+        p {
+            color: #475569;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+        .steps {
+            background: #F1F5F9;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .step {
+            display: flex;
+            align-items: start;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        .step:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .step-number {
+            background: linear-gradient(135deg, #635BFF 0%, #4F46E5 100%);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+        .step-content {
+            flex: 1;
+        }
+        .step-title {
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 5px;
+        }
+        .step-desc {
+            color: #64748B;
+            font-size: 0.9rem;
+        }
+        .code {
+            background: #1E293B;
+            color: #00D924;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #635BFF 0%, #4F46E5 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 91, 255, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 91, 255, 0.4);
+        }
+        .btn-secondary {
+            background: white;
+            color: #635BFF;
+            border: 2px solid #635BFF;
+        }
+        .btn-secondary:hover {
+            background: #F8F7FF;
+        }
+        .status {
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .status-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        .tech-stack {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .tech-badge {
+            background: #635BFF;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 FreemiumOdds V2</h1>
+        <p style="font-size: 1.2rem; color: #1E293B; font-weight: 500;">
+            Professional Football Predictions with Double Chance Odds
+        </p>
+
+        <div class="status">
+            <span class="status-icon">⚠️</span>
+            <strong>Setup Required:</strong> Your new system is ready but needs initial configuration.
+        </div>
+
+        <h2>📦 What's Installed</h2>
+        <div class="tech-stack">
+            <span class="tech-badge">React 18</span>
+            <span class="tech-badge">Node.js + Express</span>
+            <span class="tech-badge">Tailwind CSS</span>
+            <span class="tech-badge">Supabase</span>
+            <span class="tech-badge">Vercel Ready</span>
+        </div>
+
+        <h2>🎯 Quick Start (3 Steps)</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <div class="step-title">Install Dependencies</div>
+                    <div class="step-desc">Run this in your terminal:</div>
+                    <div class="code">npm run install:all</div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <div class="step-title">Configure Environment</div>
+                    <div class="step-desc">Setup your API keys:</div>
+                    <div class="code">node setup.js</div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <div class="step-title">Start Development</div>
+                    <div class="step-desc">Launch the app:</div>
+                    <div class="code">npm run dev</div>
+                    <div class="step-desc" style="margin-top: 10px;">
+                        Frontend: <strong>http://localhost:3000</strong><br>
+                        Backend: <strong>http://localhost:3001</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2>📚 Documentation</h2>
+        <p>Everything you need to know:</p>
+        <div class="btn-group">
+            <a href="README.md" class="btn btn-primary">📖 Read Full Guide</a>
+            <a href="CHEATSHEET.md" class="btn btn-secondary">⚡ Quick Commands</a>
+            <a href="DEPLOYMENT.md" class="btn btn-secondary">🚀 Deploy Guide</a>
+        </div>
+
+        <h2>💡 Windows Users</h2>
+        <p>For the easiest start, just double-click:</p>
+        <div class="code">start.bat</div>
+        <p style="margin-top: 10px; font-size: 0.9rem; color: #64748B;">
+            This will automatically install dependencies and launch the app.
+        </p>
+
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #E2E8F0;">
+            <p style="text-align: center; color: #64748B; font-size: 0.9rem;">
+                <strong>Need Help?</strong><br>
+                📧 bonbrian2@gmail.com • 📞 +255 653 931 988
+            </p>
+        </div>
+    </div>
+</body>
+</html>
