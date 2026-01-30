@@ -48,9 +48,9 @@ export default function MatchCard({ match }) {
             <span>Double Chance Odds</span>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <OddBox label="1X" odd={match.doubleChance?.['1X']} bestPick={match.bestPick === '1X'} />
-            <OddBox label="X2" odd={match.doubleChance?.['X2']} bestPick={match.bestPick === 'X2'} />
-            <OddBox label="12" odd={match.doubleChance?.['12']} bestPick={match.bestPick === '12'} />
+            <OddBox label="1X" odd={match.double_chance?.['1X']} bestPick={match.best_pick === '1X'} />
+            <OddBox label="X2" odd={match.double_chance?.['X2']} bestPick={match.best_pick === 'X2'} />
+            <OddBox label="12" odd={match.double_chance?.['12']} bestPick={match.best_pick === '12'} />
           </div>
         </div>
 
@@ -97,7 +97,24 @@ function OddBox({ label, odd, bestPick }) {
 function formatTime(kickoffString) {
   try {
     const date = new Date(kickoffString)
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    // Check if match is today, tomorrow, or future
+    const matchDate = date.toLocaleDateString()
+    const todayDate = today.toLocaleDateString()
+    const tomorrowDate = tomorrow.toLocaleDateString()
+    
+    const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    
+    if (matchDate === todayDate) {
+      return `Today ${time}`
+    } else if (matchDate === tomorrowDate) {
+      return `Tomorrow ${time}`
+    } else {
+      return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`
+    }
   } catch {
     return kickoffString
   }

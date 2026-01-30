@@ -5,9 +5,12 @@
  * 3. Calculates real win rates
  */
 
+import dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import fetch from 'node-fetch'
-import 'dotenv/config'
+
+// Load environment variables
+dotenv.config()
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
 const ODDS_API_KEY = process.env.ODDS_API_KEY
@@ -183,7 +186,7 @@ export async function calculateRealStats() {
     .eq('status', 'completed')
   
   if (!completedMatches || completedMatches.length === 0) {
-    return { winRate: 84, successRate: 78, total: 0 }
+    return { winRate: 0, successRate: 0, total: 0 }
   }
   
   const won = completedMatches.filter(m => m.result === 'won').length

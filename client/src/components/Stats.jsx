@@ -7,7 +7,7 @@ export default function Stats({ stats }) {
         {/* Circular Chart - Accuracy */}
         <div className="glass-card rounded-xl p-6 flex items-center justify-center">
           <CircularChart 
-            percentage={stats.accuracy || 84} 
+            percentage={stats.accuracy} 
             label="Win Rate" 
             color="gold"
           />
@@ -30,12 +30,27 @@ export default function Stats({ stats }) {
         {/* Success Rate Chart */}
         <div className="glass-card rounded-xl p-6 flex items-center justify-center">
           <CircularChart 
-            percentage={stats.successRate || 78} 
+            percentage={stats.successRate} 
             label="Success Rate" 
             color="green"
           />
         </div>
       </div>
+
+      {/* Auto-Update Status Bar */}
+      {stats.lastUpdate && (
+        <div className="mt-4 glass-card rounded-xl p-3">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse"></span>
+              <span className="text-slate-400">Auto-updating every hour</span>
+            </div>
+            <div className="text-slate-500">
+              Last updated: {new Date(stats.lastUpdate).toLocaleTimeString()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Premium Features Bar */}
       <div className="mt-6 glass-card rounded-xl p-4">
@@ -56,7 +71,7 @@ export default function Stats({ stats }) {
             <div className="w-10 h-10 bg-accent-green/20 rounded-lg flex items-center justify-center">
               <span className="text-accent-green text-xl">🎯</span>
             </div>
-            <span className="text-xs text-slate-400 font-semibold">84% Accuracy</span>
+            <span className="text-xs text-slate-400 font-semibold">{stats.accuracy}% Accuracy</span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <div className="w-10 h-10 bg-gold/20 rounded-lg flex items-center justify-center">

@@ -12,7 +12,7 @@ function App() {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [stats, setStats] = useState({ total: 0, accuracy: 84, successRate: 78, updated: 'daily' })
+  const [stats, setStats] = useState({ total: 0, accuracy: 0, successRate: 0, updated: 'daily', lastUpdate: null })
 
   useEffect(() => {
     fetchMatches(selectedDate)
@@ -24,12 +24,13 @@ function App() {
       const response = await fetch(`${API_URL}/matches/stats`)
       if (response.ok) {
         const data = await response.json()
-        setStats(prev => ({
-          ...prev,
-          accuracy: data.winRate || 84,
-          successRate: data.successRate || 78,
-          total: data.total || 0
-        }))
+        setStats({
+          accuracy: data.winRate || 0,
+          successRate: data.successRate || 0,
+          total: data.total || 0,
+          lastUpdate: data.lastUpdate || new Date().toISOString(),
+          completedMatches: data.completedMatches || 0
+        })
       }
     } catch (error) {
       console.error('Error fetching stats:', error)

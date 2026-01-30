@@ -11,20 +11,34 @@ const router = express.Router()
 router.get('/stats', async (req, res) => {
   try {
     if (!isSupabaseConfigured()) {
-      return res.json({ winRate: 84, successRate: 78, total: 0, source: 'mock' })
+      return res.json({ winRate: 0, successRate: 0, total: 0, completedMatches: 0, lastUpdate: null, source: 'mock' })
     }
     
     const { data: completed } = await supabase
       .from('matches')
-      .select('result, status')
+      .select('result, status, updated_at')
       .eq('status', 'completed')
     
     const { data: total } = await supabase
       .from('matches')
       .select('id', { count: 'exact' })
     
+    // Get last update timestamp
+    const { data: lastMatch } = await supabase
+      .from('matches')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
     if (!completed || completed.length === 0) {
-      return res.json({ winRate: 84, successRate: 78, total: total?.length || 0, source: 'calculated' })
+      return res.json({ 
+        winRate: 0, 
+        successRate: 0, 
+        total: total?.length || 0, 
+        completedMatches: 0,
+        lastUpdate: lastMatch?.[0]?.created_at || null,
+        source: 'calculated' 
+      })
     }
     
     const won = completed.filter(m => m.result === 'won').length
@@ -35,11 +49,12 @@ router.get('/stats', async (req, res) => {
       successRate: winRate,
       total: total?.length || 0,
       completedMatches: completed.length,
+      lastUpdate: lastMatch?.[0]?.created_at || new Date().toISOString(),
       source: 'calculated'
     })
   } catch (error) {
     console.error('Error fetching stats:', error)
-    res.json({ winRate: 84, successRate: 78, total: 0, source: 'error' })
+    res.json({ winRate: 0, successRate: 0, total: 0, completedMatches: 0, lastUpdate: null, source: 'error' })
   }
 })
 
