@@ -12,7 +12,16 @@ function App() {
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [stats, setStats] = useState({ total: 0, accuracy: 0, successRate: 0, updated: 'daily', lastUpdate: null })
+  const [stats, setStats] = useState({ 
+    total: 0, 
+    active: 0, 
+    completed: 0, 
+    won: 0, 
+    lost: 0, 
+    accuracy: 0, 
+    successRate: 0, 
+    lastUpdate: null 
+  })
 
   useEffect(() => {
     fetchMatches(selectedDate)
@@ -28,8 +37,11 @@ function App() {
           accuracy: data.winRate || 0,
           successRate: data.successRate || 0,
           total: data.total || 0,
-          lastUpdate: data.lastUpdate || new Date().toISOString(),
-          completedMatches: data.completedMatches || 0
+          active: data.active || 0,
+          completed: data.completed || 0,
+          won: data.won || 0,
+          lost: data.lost || 0,
+          lastUpdate: data.lastUpdate || new Date().toISOString()
         })
       }
     } catch (error) {
