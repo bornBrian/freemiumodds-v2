@@ -1,11 +1,28 @@
 export default function MatchCard({ match }) {
-  const statusColors = {
-    pending: 'bg-gold/20 text-gold border-gold/30',
-    live: 'bg-accent-red/20 text-accent-red border-accent-red/30',
-    won: 'bg-accent-green/20 text-accent-green border-accent-green/30',
-    lost: 'bg-accent-red/20 text-accent-red border-accent-red/30',
-    completed: 'bg-slate-700 text-slate-300 border-slate-600'
+  // Determine the display status and colors
+  const getStatusDisplay = () => {
+    if (match.status === 'completed' && match.result) {
+      return {
+        label: match.result.toUpperCase(),
+        color: match.result === 'won' 
+          ? 'bg-green-500/20 text-green-400 border-green-500/50' 
+          : 'bg-red-500/20 text-red-400 border-red-500/50'
+      }
+    }
+    
+    const statusColors = {
+      pending: 'bg-gold/20 text-gold border-gold/30',
+      live: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+      completed: 'bg-slate-700 text-slate-300 border-slate-600'
+    }
+    
+    return {
+      label: match.status.toUpperCase(),
+      color: statusColors[match.status] || statusColors.pending
+    }
   }
+
+  const statusDisplay = getStatusDisplay()
 
   return (
     <article className="glass-card rounded-xl overflow-hidden card-premium">
@@ -15,8 +32,8 @@ export default function MatchCard({ match }) {
           <span className="text-gold">⏰</span>
           <span>{formatTime(match.kickoff)}</span>
         </span>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${statusColors[match.status] || statusColors.pending}`}>
-          {match.status}
+        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase border ${statusDisplay.color}`}>
+          {statusDisplay.label}
         </span>
       </div>
 
