@@ -1,6 +1,6 @@
 /**
- * Fetch REAL results from SofaScore API
- * SofaScore has comprehensive free data for all matches
+ * AUTO-FETCH REAL results from SofaScore API
+ * Runs automatically to update match results
  */
 import { createClient } from '@supabase/supabase-js'
 import fetch from 'node-fetch'
@@ -8,15 +8,17 @@ import 'dotenv/config'
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY)
 
-console.log('🔄 Fetching REAL results from SofaScore...\n')
+console.log('🔄 AUTO-FETCHING REAL results from SofaScore...\n')
 
-// Get matches that need updating
-const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+// Get pending matches that should be finished (2+ hours after kickoff)
+const twoHoursAgo = new Date(Date.now() - 120 * 60 * 1000).toISOString()
 const { data: matches } = await supabase
   .from('matches')
   .select('*')
   .eq('status', 'pending')
   .lt('kickoff', twoHoursAgo)
+
+console.log(`Found ${matches?.length || 0} matches that should be finished`)
 
 if (!matches || matches.length === 0) {
   console.log('✅ No matches need updating')
@@ -33,55 +35,52 @@ for (const match of matches) {
   console.log(`\n🔍 ${match.home} vs ${match.away}`)
   
   try {
-    // Format team names for URL (lowercase, spaces to hyphens)
-    const homeSlug = match.home.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    const awaySlug = match.away.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    
     // Search SofaScore API
     const searchQuery = encodeURIComponent(`${match.home} ${match.away}`)
     const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
     
     const response = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
       }
     })
     
     if (!response.ok) {
-      console.log(`   ⚠️  SofaScore API returned ${response.status}`)
+      console.log(`   ⚠️  API error: ${response.status}`)
       continue
     }
     
     const data = await response.json()
     
-    // Find the event in results
-    let foundMatch = null
+    // Find today's match in search results
+    const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
+    let eventId = null
+    
     if (data.results) {
       for (const result of data.results) {
         if (result.type === 'event' && result.entity) {
           const event = result.entity
           
-          // Check if team names match (fuzzy match)
-          const homeMatch = event.homeTeam?.name?.toLowerCase().includes(match.home.toLowerCase().split(' ')[0]) ||
-                           match.home.toLowerCase().includes(event.homeTeam?.name?.toLowerCase())
-          const awayMatch = event.awayTeam?.name?.toLowerCase().includes(match.away.toLowerCase().split(' ')[0]) ||
-                           match.away.toLowerCase().includes(event.awayTeam?.name?.toLowerCase())
+          // Check if date matches
+          const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
+          if (eventDate !== matchDate) continue
           
-          if (homeMatch && awayMatch) {
-            foundMatch = event
+          // Check if teams match
+          const homeMatch = event.homeTeam?.name?.toLowerCase().includes(match.home.toLowerCase().split(' ')[0])
+          const awayMatch = event.awayTeam?.name?.toLowerCase().includes(match.away.toLowerCase().split(' ')[0])
+          
+          if (homeMatch && awayMatch && event.status?.type === 'finished') {
+            eventId = event.id
             break
           }
         }
       }
     }
     
-    if (foundMatch && foundMatch.status?.type === 'finished') {
-      // Get the match details for full score
-      const matchId = foundMatch.id
-      const detailUrl = `https://www.sofascore.com/api/v1/event/${matchId}`
-      
+    if (eventId) {
+      // Fetch detailed match data using event ID
+      const detailUrl = `https://www.sofascore.com/api/v1/event/${eventId}`
       const detailResponse = await fetch(detailUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -98,36 +97,34 @@ for (const match of matches) {
           const awayScore = event.awayScore.current || event.awayScore.display
           const finalScore = `${homeScore}-${awayScore}`
           
-          // Check if prediction won
+          // Validate prediction
           const tip = match.tip || match.best_pick
-          let predictionResult = 'lost'
+          let result = 'lost'
           
-          if (tip === '1X' && homeScore >= awayScore) predictionResult = 'won'
-          else if (tip === 'X2' && awayScore >= homeScore) predictionResult = 'won'
-          else if (tip === '12' && homeScore !== awayScore) predictionResult = 'won'
+          if (tip === '1X' && homeScore >= awayScore) result = 'won'
+          else if (tip === 'X2' && awayScore >= homeScore) result = 'won'
+          else if (tip === '12' && homeScore !== awayScore) result = 'won'
           
-          // Update database
+          // Update database with REAL score
           await supabase
             .from('matches')
             .update({
               status: 'completed',
-              result: predictionResult,
-              final_score: finalScore,
-              updated_at: new Date().toISOString()
+              result: result,
+              final_score: finalScore
             })
             .eq('id', match.id)
           
           updated++
-          if (predictionResult === 'won') won++
+          if (result === 'won') won++
           else lost++
           
-          const emoji = predictionResult === 'won' ? '✅' : '❌'
-          console.log(`   ${emoji} REAL SCORE from SofaScore: ${finalScore} - ${predictionResult.toUpperCase()}`)
-          console.log(`   Prediction was: ${tip} (${match.confidence}% confidence)`)
+          const emoji = result === 'won' ? '✅' : '❌'
+          console.log(`   ${emoji} REAL: ${finalScore} - ${result.toUpperCase()}`)
         }
       }
     } else {
-      console.log(`   ⚠️  Match not found or not finished on SofaScore`)
+      console.log(`   ⚠️  Not found on SofaScore`)
     }
     
   } catch (error) {
@@ -139,10 +136,12 @@ for (const match of matches) {
 }
 
 console.log(`\n\n📊 Summary:`)
-console.log(`   Updated: ${updated} matches with REAL SofaScore data`)
+console.log(`   Updated: ${updated} matches`)
 console.log(`   Won: ${won}`)
 console.log(`   Lost: ${lost}`)
 if (updated > 0) {
   console.log(`   Win Rate: ${Math.round((won / updated) * 100)}%`)
 }
-console.log(`\n✅ All results are from REAL match data!`)
+console.log(`\n✅ AUTO-FETCH complete - all results from REAL SofaScore data!`)
+
+process.exit(0)
