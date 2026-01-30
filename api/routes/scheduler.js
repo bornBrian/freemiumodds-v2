@@ -2,8 +2,37 @@ import express from 'express'
 import { supabase, isSupabaseConfigured } from '../config/supabase.js'
 import { fetchOddsFromAPI, extract1X2Odds } from '../services/oddsAPI.js'
 import { toDoubleChanceOdds } from '../utils/oddsConverter.js'
+import runAutoUpdate from '../../auto-update-oddslot.js'
 
 const router = express.Router()
+
+/**
+ * GET/POST /api/scheduler/update
+ * Trigger Oddslot auto-update (used by Vercel Cron)
+ */
+router.all('/update', async (req, res) => {
+  try {
+    console.log('🔄 [SCHEDULER] Auto-update triggered at', new Date().toISOString())
+    
+    // Run the auto-update
+    await runAutoUpdate()
+    
+    console.log('✅ [SCHEDULER] Auto-update completed successfully')
+    
+    res.json({ 
+      success: true, 
+      message: 'Auto-update completed',
+      timestamp: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('❌ [SCHEDULER] Auto-update failed:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
 
 /**
  * POST /api/scheduler/fetch-daily
