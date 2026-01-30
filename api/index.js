@@ -36,7 +36,7 @@ app.use((err, req, res, next) => {
 })
 
 // Start server (for local development)
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`)
     
@@ -61,5 +61,5 @@ if (process.env.NODE_ENV !== 'production') {
   })
 }
 
-// Export for Vercel serverless
+// Export for Vercel serverless (required for serverless functions)
 export default app
