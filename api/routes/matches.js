@@ -32,25 +32,34 @@ router.get('/stats', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(1)
     
-    // Calculate average confidence from all matches as accuracy
-    let accuracy = 84 // default
+    // Calculate average confidence from active predictions
+    let avgConfidence = 85 // default
     if (allMatches && allMatches.length > 0) {
-      const avgConfidence = allMatches.reduce((sum, m) => sum + (m.confidence || 84), 0) / allMatches.length
-      accuracy = Math.round(avgConfidence)
+      avgConfidence = Math.round(
+        allMatches.reduce((sum, m) => sum + (m.confidence || 85), 0) / allMatches.length
+      )
     }
     
-    // Calculate success rate from completed matches
-    let successRate = accuracy
+    // Calculate actual win rate from completed matches
+    let winRate = 0
+    let successRate = 0
+    
     if (completed && completed.length > 0) {
       const won = completed.filter(m => m.result === 'won').length
-      successRate = Math.round((won / completed.length) * 100)
+      winRate = Math.round((won / completed.length) * 100)
+      successRate = winRate
+    } else {
+      // No completed matches yet - show average prediction confidence instead
+      winRate = avgConfidence
+      successRate = avgConfidence
     }
     
     res.json({
-      winRate: accuracy,
+      winRate: winRate,
       successRate: successRate,
       total: totalCount || 0,
       completedMatches: completed?.length || 0,
+      avgConfidence: avgConfidence,
       lastUpdate: lastMatch?.[0]?.created_at || new Date().toISOString(),
       source: 'calculated'
     })

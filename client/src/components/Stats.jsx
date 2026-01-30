@@ -1,14 +1,17 @@
 import CircularChart from './CircularChart'
 
 export default function Stats({ stats }) {
+  const noCompletedMatches = !stats.completedMatches || stats.completedMatches === 0
+  const label = noCompletedMatches ? "Avg Confidence" : "Win Rate"
+  
   return (
     <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Circular Chart - Accuracy */}
+        {/* Circular Chart - Accuracy/Confidence */}
         <div className="glass-card rounded-xl p-6 flex items-center justify-center">
           <CircularChart 
             percentage={stats.accuracy} 
-            label="Win Rate" 
+            label={label}
             color="gold"
           />
         </div>
@@ -23,7 +26,7 @@ export default function Stats({ stats }) {
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
             <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse"></span>
-            <span>Updated {stats.updated || 'daily'}</span>
+            <span>{noCompletedMatches ? 'Predictions only' : `${stats.completedMatches} completed`}</span>
           </div>
         </div>
 
@@ -31,7 +34,7 @@ export default function Stats({ stats }) {
         <div className="glass-card rounded-xl p-6 flex items-center justify-center">
           <CircularChart 
             percentage={stats.successRate} 
-            label="Success Rate" 
+            label={noCompletedMatches ? "Target Rate" : "Success Rate"}
             color="green"
           />
         </div>
