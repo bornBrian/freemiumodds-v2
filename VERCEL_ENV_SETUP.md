@@ -18,6 +18,16 @@ https://jtxpmlajhrkasfphuucm.supabase.co
 eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0eHBtbGFqaHJrYXNmcGh1dWNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3MTc5MzgsImV4cCI6MjA4NTI5MzkzOH0.dMvfwmwk4JC1Z_qxIxr45cDdZOHl2xO8FaQlZVklO_M
 ```
 
+### ODDS_API_KEY
+```
+02c41f98958505825c85a23754e881b4
+```
+
+### API_FOOTBALL_KEY (NEW - for real match results)
+```
+6f965235007cf99bbfdebd076f78683d
+```
+
 ### NODE_ENV
 ```
 production
