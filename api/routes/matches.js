@@ -11,19 +11,28 @@ const router = express.Router()
 router.get('/stats', async (req, res) => {
   try {
     if (!isSupabaseConfigured()) {
-      return res.json({ winRate: 0, successRate: 0, total: 0, completedMatches: 0, lastUpdate: null, source: 'mock' })
+      return res.json({ winRate: 0, successRate: 0, total: 0, active: 0, completed: 0, won: 0, lost: 0, lastUpdate: null, source: 'mock' })
     }
     
-    // Get all matches
-    const { data: allMatches, count: totalCount } = await supabase
+    // Get TODAY's date range
+    const today = new Date()
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString()
+    
+    // Get all matches for today
+    const { data: todayMatches, count: totalCount } = await supabase
       .from('matches')
       .select('*', { count: 'exact' })
+      .gte('kickoff', todayStart)
+      .lt('kickoff', todayEnd)
     
-    // Get completed matches
-    const { data: completed } = await supabase
-      .from('matches')
-      .select('result, status, updated_at')
-      .eq('status', 'completed')
+    // Get today's active matches
+    const activeMatches = todayMatches?.filter(m => m.status === 'pending') || []
+    
+    // Get today's completed matches
+    const completedMatches = todayMatches?.filter(m => m.status === 'completed') || []
+    const wonMatches = completedMatches.filter(m => m.result === 'won')
+    const lostMatches = completedMatches.filter(m => m.result === 'lost')
     
     // Get last update timestamp
     const { data: lastMatch } = await supabase
@@ -32,24 +41,23 @@ router.get('/stats', async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(1)
     
-    // Calculate average confidence from active predictions
+    // Calculate average confidence from today's active predictions
     let avgConfidence = 85 // default
-    if (allMatches && allMatches.length > 0) {
+    if (activeMatches.length > 0) {
       avgConfidence = Math.round(
-        allMatches.reduce((sum, m) => sum + (m.confidence || 85), 0) / allMatches.length
+        activeMatches.reduce((sum, m) => sum + (m.confidence || 85), 0) / activeMatches.length
       )
     }
     
-    // Calculate actual win rate from completed matches
+    // Calculate win rate from today's completed matches
     let winRate = 0
     let successRate = 0
     
-    if (completed && completed.length > 0) {
-      const won = completed.filter(m => m.result === 'won').length
-      winRate = Math.round((won / completed.length) * 100)
+    if (completedMatches.length > 0) {
+      winRate = Math.round((wonMatches.length / completedMatches.length) * 100)
       successRate = winRate
     } else {
-      // No completed matches yet - show average prediction confidence instead
+      // No completed matches today - show average prediction confidence
       winRate = avgConfidence
       successRate = avgConfidence
     }
@@ -58,14 +66,17 @@ router.get('/stats', async (req, res) => {
       winRate: winRate,
       successRate: successRate,
       total: totalCount || 0,
-      completedMatches: completed?.length || 0,
+      active: activeMatches.length,
+      completed: completedMatches.length,
+      won: wonMatches.length,
+      lost: lostMatches.length,
       avgConfidence: avgConfidence,
       lastUpdate: lastMatch?.[0]?.created_at || new Date().toISOString(),
-      source: 'calculated'
+      source: 'today'
     })
   } catch (error) {
     console.error('Error fetching stats:', error)
-    res.json({ winRate: 84, successRate: 84, total: 0, completedMatches: 0, lastUpdate: null, source: 'error' })
+    res.json({ winRate: 84, successRate: 84, total: 0, active: 0, completed: 0, won: 0, lost: 0, lastUpdate: null, source: 'error' })
   }
 })
 

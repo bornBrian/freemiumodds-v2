@@ -1,8 +1,8 @@
 import CircularChart from './CircularChart'
 
 export default function Stats({ stats }) {
-  const noCompletedMatches = !stats.completedMatches || stats.completedMatches === 0
-  const label = noCompletedMatches ? "Avg Confidence" : "Win Rate"
+  const hasCompleted = stats.completed > 0
+  const label = hasCompleted ? "Win Rate" : "Avg Confidence"
   
   return (
     <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
@@ -16,17 +16,25 @@ export default function Stats({ stats }) {
           />
         </div>
 
-        {/* Total Predictions */}
+        {/* Today's Predictions */}
         <div className="glass-card rounded-xl p-6 flex flex-col justify-center items-center">
           <div className="text-5xl font-black text-gold-gradient mb-2">
-            {stats.total || 0}
+            {stats.active || 0}
           </div>
           <div className="text-sm text-slate-400 font-bold uppercase tracking-wider">
-            Active Predictions
+            Active Bets Today
           </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-            <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse"></span>
-            <span>{noCompletedMatches ? 'Predictions only' : `${stats.completedMatches} completed`}</span>
+          <div className="mt-3 flex flex-col gap-1 text-xs text-slate-500">
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-2 h-2 bg-accent-green rounded-full animate-pulse"></span>
+              <span>{stats.completed || 0} completed today</span>
+            </div>
+            {hasCompleted && (
+              <div className="flex items-center justify-center gap-3 text-[10px]">
+                <span className="text-green-400">✓ {stats.won || 0} won</span>
+                <span className="text-red-400">✗ {stats.lost || 0} lost</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -34,7 +42,7 @@ export default function Stats({ stats }) {
         <div className="glass-card rounded-xl p-6 flex items-center justify-center">
           <CircularChart 
             percentage={stats.successRate} 
-            label={noCompletedMatches ? "Target Rate" : "Success Rate"}
+            label={hasCompleted ? "Success Rate" : "Target Rate"}
             color="green"
           />
         </div>
