@@ -28,6 +28,21 @@ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0eHBtbGF
 6f965235007cf99bbfdebd076f78683d
 ```
 
+### RAPIDAPI_KEY (SofaScore via RapidAPI)
+```
+fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982
+```
+
+### SPORTSAPI360_KEY (Multi-sport data)
+```
+7e6cf29ae14e1048fcf8a612c0d501c623ceb726ec428918ba38299e6ddb2560
+```
+
+### FOOTBALL_DATA_ORG_KEY (European leagues - Premier League, La Liga, etc.)
+```
+499d44325a7e48968f5dc9bd62541e7d
+```
+
 ### NODE_ENV
 ```
 production

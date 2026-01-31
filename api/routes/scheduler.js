@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '../config/supabase.js'
 import { fetchOddsFromAPI, extract1X2Odds } from '../services/oddsAPI.js'
 import { toDoubleChanceOdds } from '../utils/oddsConverter.js'
 import runAutoUpdate from '../../auto-update-oddslot.js'
+import { fetchMatchResult } from '../services/multiApiResults.js'
 
 const router = express.Router()
 
@@ -214,14 +215,21 @@ router.post('/update-statuses', async (req, res) => {
 
 /**
  * GET/POST /api/scheduler/update-results
- * AUTO-UPDATE match results from SofaScore (for Vercel Cron)
+ * AUTO-UPDATE match results from MULTIPLE APIs (for Vercel Cron)
  */
 router.all('/update-results', async (req, res) => {
   try {
-    console.log('🔄 [RESULTS] Auto-updating results at', new Date().toISOString())
+    console.log('🔄 [RESULTS] Auto-updating results from MULTIPLE APIs at', new Date().toISOString())
     
     if (!isSupabaseConfigured()) {
       return res.json({ message: 'Database not configured', updated: 0 })
+    }
+
+    // API Keys
+    const apiKeys = {
+      rapidapi: process.env.RAPIDAPI_KEY,
+      footballData: process.env.FOOTBALL_DATA_ORG_KEY,
+      apiFootball: process.env.API_FOOTBALL_KEY
     }
 
     // Get matches that should be finished (2+ hours after kickoff)
@@ -247,158 +255,46 @@ router.all('/update-results', async (req, res) => {
     let updated = 0
     let won = 0
     let lost = 0
+    const sources = {}
 
-    // Helper functions for smart team matching
-    const normalizeTeam = (name) => {
-      const nameMap = {
-        'real madrid b': 'real madrid castilla',
-        'barcelona b': 'barcelona athletic',
-        'atletico madrid b': 'atletico madrid b',
-        'osasuna b': 'osasuna promesas',
-        'din. bucuresti': 'dinamo bucuresti',
-        'dinamo bucuresti': 'fc dinamo bucuresti',
-        'cfr cluj': 'cfr 1907 cluj',
-        'istanbulspor as': 'istanbulspor',
-        'airdrieonians': 'airdrie',
-      }
-      
-      const lower = name.toLowerCase().trim()
-      if (nameMap[lower]) return nameMap[lower]
-      
-      return lower
-        .replace(/\s+fc\s*/gi, '')
-        .replace(/\s+cf\s*/gi, '')
-        .replace(/\s+sc\s*/gi, '')
-        .replace(/\s+as\s*/gi, '')
-        .replace(/\s+bk\s*/gi, '')
-        .replace(/[^\w\s]/g, '')
-        .trim()
-    }
-
-    const teamsMatch = (searchName, resultName) => {
-      const search = normalizeTeam(searchName)
-      const result = normalizeTeam(resultName)
-      
-      if (search === result) return true
-      
-      const searchWords = search.split(' ').filter(w => w.length > 2)
-      const resultWords = result.split(' ').filter(w => w.length > 2)
-      
-      let matches = 0
-      for (const sw of searchWords) {
-        for (const rw of resultWords) {
-          if (sw.includes(rw) || rw.includes(sw)) matches++
-        }
-      }
-      return matches >= Math.min(2, searchWords.length)
-    }
-
-    // Process matches
+    // Process matches using multi-API fetcher
     for (const match of matches) {
       try {
-        // Try multiple search strategies
-        const searchQueries = [
-          `${match.home} ${match.away}`,
-          match.home,
-          match.away
-        ]
+        const result = await fetchMatchResult(match, apiKeys)
         
-        let eventId = null
-        const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
-        
-        for (const query of searchQueries) {
-          if (eventId) break
+        if (result) {
+          const finalScore = `${result.homeScore}-${result.awayScore}`
           
-          const searchQuery = encodeURIComponent(query)
+          // Validate prediction
+          const tip = match.tip || match.best_pick
+          let predictionResult = 'lost'
           
-          // Use RapidAPI SofaScore endpoint
-          const searchUrl = `https://sofascore.p.rapidapi.com/search?q=${searchQuery}`
+          if (tip === '1X' && result.homeScore >= result.awayScore) predictionResult = 'won'
+          else if (tip === 'X2' && result.awayScore >= result.homeScore) predictionResult = 'won'
+          else if (tip === '12' && result.homeScore !== result.awayScore) predictionResult = 'won'
           
-          const response = await fetch(searchUrl, {
-            headers: {
-              'x-rapidapi-host': 'sofascore.p.rapidapi.com',
-              'x-rapidapi-key': process.env.RAPIDAPI_KEY || 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          })
+          // Update database
+          await supabase
+            .from('matches')
+            .update({
+              status: 'completed',
+              result: predictionResult,
+              final_score: finalScore
+            })
+            .eq('id', match.id)
           
-          if (!response.ok) continue
+          updated++
+          if (predictionResult === 'won') won++
+          else lost++
           
-          const data = await response.json()
+          // Track which API provided the result
+          sources[result.source] = (sources[result.source] || 0) + 1
           
-          // Find match in results with fuzzy matching
-          if (data.results) {
-            for (const result of data.results) {
-              if (result.type === 'event' && result.entity) {
-                const event = result.entity
-                const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
-                
-                if (eventDate === matchDate && event.status?.type === 'finished') {
-                  const homeMatch = teamsMatch(match.home, event.homeTeam?.name || '')
-                  const awayMatch = teamsMatch(match.away, event.awayTeam?.name || '')
-                
-                  if (homeMatch && awayMatch) {
-                    eventId = event.id
-                    break
-                  }
-                }
-              }
-            }
-          }
-          
-          // Small delay between searches
-          await new Promise(resolve => setTimeout(resolve, 300))
+          console.log(`   ${predictionResult === 'won' ? '✅' : '❌'} ${match.home} vs ${match.away}: ${finalScore} (${result.source})`)
         }
         
-        // Get detailed score - use RapidAPI
-        if (eventId) {
-          const detailUrl = `https://sofascore.p.rapidapi.com/matches/get-detail?eventId=${eventId}`
-          const detailResponse = await fetch(detailUrl, {
-            headers: {
-              'x-rapidapi-host': 'sofascore.p.rapidapi.com',
-              'x-rapidapi-key': process.env.RAPIDAPI_KEY || 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          })
-          
-          if (detailResponse.ok) {
-            const matchData = await detailResponse.json()
-            const event = matchData.event
-            
-            if (event.homeScore && event.awayScore) {
-              const homeScore = event.homeScore.current || event.homeScore.display
-              const awayScore = event.awayScore.current || event.awayScore.display
-              const finalScore = `${homeScore}-${awayScore}`
-              
-              // Validate prediction
-              const tip = match.tip || match.best_pick
-              let result = 'lost'
-              
-              if (tip === '1X' && homeScore >= awayScore) result = 'won'
-              else if (tip === 'X2' && awayScore >= homeScore) result = 'won'
-              else if (tip === '12' && homeScore !== awayScore) result = 'won'
-              
-              // Update database
-              await supabase
-                .from('matches')
-                .update({
-                  status: 'completed',
-                  result: result,
-                  final_score: finalScore
-                })
-                .eq('id', match.id)
-              
-              updated++
-              if (result === 'won') won++
-              else lost++
-              
-              console.log(`   ${result === 'won' ? '✅' : '❌'} ${match.home} vs ${match.away}: ${finalScore}`)
-            }
-          }
-        }
-        
-        // Delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 800))
         
       } catch (err) {
         console.error(`Error processing match ${match.id}:`, err.message)
@@ -406,6 +302,7 @@ router.all('/update-results', async (req, res) => {
     }
 
     console.log(`✅ [RESULTS] Updated ${updated} matches (Won: ${won}, Lost: ${lost})`)
+    console.log(`📡 [SOURCES]`, sources)
     
     res.json({ 
       success: true,
@@ -413,6 +310,7 @@ router.all('/update-results', async (req, res) => {
       won,
       lost,
       winRate: updated > 0 ? Math.round((won / updated) * 100) : 0,
+      sources,
       timestamp: new Date().toISOString()
     })
     
