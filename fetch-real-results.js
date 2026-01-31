@@ -31,51 +31,124 @@ let updated = 0
 let won = 0
 let lost = 0
 
+// Helper function to normalize team names for better matching
+function normalizeTeam(name) {
+  // Map known alternative names
+  const nameMap = {
+    'real madrid b': 'real madrid castilla',
+    'barcelona b': 'barcelona athletic',
+    'atletico madrid b': 'atletico madrid b',
+    'osasuna b': 'osasuna promesas',
+    'din. bucuresti': 'dinamo bucuresti',
+    'dinamo bucuresti': 'fc dinamo bucuresti',
+    'cfr cluj': 'cfr 1907 cluj',
+    'istanbulspor as': 'istanbulspor',
+    'airdrieonians': 'airdrie',
+  }
+  
+  const lower = name.toLowerCase().trim()
+  
+  // Check if we have a direct mapping
+  if (nameMap[lower]) {
+    return nameMap[lower]
+  }
+  
+  return lower
+    .replace(/\s+fc\s*/gi, '')
+    .replace(/\s+cf\s*/gi, '')
+    .replace(/\s+sc\s*/gi, '')
+    .replace(/\s+as\s*/gi, '')
+    .replace(/\s+bk\s*/gi, '')
+    .replace(/[^\w\s]/g, '') // Remove special chars
+    .trim()
+}
+
+// Helper to check if teams match with fuzzy logic
+function teamsMatch(searchName, resultName) {
+  const search = normalizeTeam(searchName)
+  const result = normalizeTeam(resultName)
+  
+  // Direct match
+  if (search === result) return true
+  
+  // Get first significant word (usually the main team name)
+  const searchWords = search.split(' ').filter(w => w.length > 2)
+  const resultWords = result.split(' ').filter(w => w.length > 2)
+  
+  // Check if any significant word matches (at least 2 matches for accuracy)
+  let matches = 0
+  for (const sw of searchWords) {
+    for (const rw of resultWords) {
+      if (sw.includes(rw) || rw.includes(sw)) {
+        matches++
+      }
+    }
+  }
+  return matches >= Math.min(2, searchWords.length)
+}
+
 for (const match of matches) {
   console.log(`\n🔍 ${match.home} vs ${match.away}`)
   
   try {
-    // Search SofaScore API
-    const searchQuery = encodeURIComponent(`${match.home} ${match.away}`)
-    const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+    // Normalize team names first for better search
+    const normalizedHome = normalizeTeam(match.home)
+    const normalizedAway = normalizeTeam(match.away)
     
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-      }
-    })
+    // Try multiple search strategies with both original and normalized names
+    const searchQueries = [
+      `${match.home} ${match.away}`, // Original
+      `${normalizedHome} ${normalizedAway}`, // Normalized
+      normalizedHome, // Just home team normalized
+      normalizedAway, // Just away team normalized
+      match.home, // Original home
+      match.away, // Original away
+    ]
     
-    if (!response.ok) {
-      console.log(`   ⚠️  API error: ${response.status}`)
-      continue
-    }
-    
-    const data = await response.json()
-    
-    // Find today's match in search results
-    const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
     let eventId = null
+    const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
     
-    if (data.results) {
-      for (const result of data.results) {
-        if (result.type === 'event' && result.entity) {
-          const event = result.entity
-          
-          // Check if date matches
-          const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
-          if (eventDate !== matchDate) continue
-          
-          // Check if teams match
-          const homeMatch = event.homeTeam?.name?.toLowerCase().includes(match.home.toLowerCase().split(' ')[0])
-          const awayMatch = event.awayTeam?.name?.toLowerCase().includes(match.away.toLowerCase().split(' ')[0])
-          
-          if (homeMatch && awayMatch && event.status?.type === 'finished') {
-            eventId = event.id
-            break
+    for (const query of searchQueries) {
+      if (eventId) break // Already found
+      
+      const searchQuery = encodeURIComponent(query)
+      const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+      
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        }
+      })
+      
+      if (!response.ok) continue
+      
+      const data = await response.json()
+      
+      if (data.results) {
+        for (const result of data.results) {
+          if (result.type === 'event' && result.entity) {
+            const event = result.entity
+            
+            // Check if date matches
+            const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
+            if (eventDate !== matchDate) continue
+            
+            // Use fuzzy team matching
+            const homeMatch = teamsMatch(match.home, event.homeTeam?.name || '')
+            const awayMatch = teamsMatch(match.away, event.awayTeam?.name || '')
+            
+            if (homeMatch && awayMatch && event.status?.type === 'finished') {
+              eventId = event.id
+              console.log(`   🎯 Found: ${event.homeTeam.name} vs ${event.awayTeam.name}`)
+              break
+            }
           }
         }
       }
+      
+      // Small delay between searches
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
     
     if (eventId) {

@@ -248,44 +248,103 @@ router.all('/update-results', async (req, res) => {
     let won = 0
     let lost = 0
 
+    // Helper functions for smart team matching
+    const normalizeTeam = (name) => {
+      const nameMap = {
+        'real madrid b': 'real madrid castilla',
+        'barcelona b': 'barcelona athletic',
+        'atletico madrid b': 'atletico madrid b',
+        'osasuna b': 'osasuna promesas',
+        'din. bucuresti': 'dinamo bucuresti',
+        'dinamo bucuresti': 'fc dinamo bucuresti',
+        'cfr cluj': 'cfr 1907 cluj',
+        'istanbulspor as': 'istanbulspor',
+        'airdrieonians': 'airdrie',
+      }
+      
+      const lower = name.toLowerCase().trim()
+      if (nameMap[lower]) return nameMap[lower]
+      
+      return lower
+        .replace(/\s+fc\s*/gi, '')
+        .replace(/\s+cf\s*/gi, '')
+        .replace(/\s+sc\s*/gi, '')
+        .replace(/\s+as\s*/gi, '')
+        .replace(/\s+bk\s*/gi, '')
+        .replace(/[^\w\s]/g, '')
+        .trim()
+    }
+
+    const teamsMatch = (searchName, resultName) => {
+      const search = normalizeTeam(searchName)
+      const result = normalizeTeam(resultName)
+      
+      if (search === result) return true
+      
+      const searchWords = search.split(' ').filter(w => w.length > 2)
+      const resultWords = result.split(' ').filter(w => w.length > 2)
+      
+      let matches = 0
+      for (const sw of searchWords) {
+        for (const rw of resultWords) {
+          if (sw.includes(rw) || rw.includes(sw)) matches++
+        }
+      }
+      return matches >= Math.min(2, searchWords.length)
+    }
+
     // Process matches
     for (const match of matches) {
       try {
-        // Search SofaScore
-        const searchQuery = encodeURIComponent(`${match.home} ${match.away}`)
-        const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+        // Try multiple search strategies
+        const searchQueries = [
+          `${match.home} ${match.away}`,
+          match.home,
+          match.away
+        ]
         
-        const response = await fetch(searchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
-          }
-        })
-        
-        if (!response.ok) continue
-        
-        const data = await response.json()
-        const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
         let eventId = null
+        const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
         
-        // Find match in results
-        if (data.results) {
-          for (const result of data.results) {
-            if (result.type === 'event' && result.entity) {
-              const event = result.entity
-              const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
-              
-              if (eventDate === matchDate && event.status?.type === 'finished') {
-                const homeMatch = event.homeTeam?.name?.toLowerCase().includes(match.home.toLowerCase().split(' ')[0])
-                const awayMatch = event.awayTeam?.name?.toLowerCase().includes(match.away.toLowerCase().split(' ')[0])
+        for (const query of searchQueries) {
+          if (eventId) break
+          
+          const searchQuery = encodeURIComponent(query)
+          const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+          
+          const response = await fetch(searchUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json'
+            }
+          })
+          
+          if (!response.ok) continue
+          
+          const data = await response.json()
+          
+          // Find match in results with fuzzy matching
+          if (data.results) {
+            for (const result of data.results) {
+              if (result.type === 'event' && result.entity) {
+                const event = result.entity
+                const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
                 
-                if (homeMatch && awayMatch) {
-                  eventId = event.id
-                  break
+                if (eventDate === matchDate && event.status?.type === 'finished') {
+                  const homeMatch = teamsMatch(match.home, event.homeTeam?.name || '')
+                  const awayMatch = teamsMatch(match.away, event.awayTeam?.name || '')
+                
+                  if (homeMatch && awayMatch) {
+                    eventId = event.id
+                    break
+                  }
                 }
               }
             }
           }
+          
+          // Small delay between searches
+          await new Promise(resolve => setTimeout(resolve, 300))
         }
         
         // Get detailed score
