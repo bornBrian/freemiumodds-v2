@@ -89,24 +89,36 @@ export async function scrapeOddslotPredictions() {
               const timeMatch = kickoffTime.match(/(\d{2}):(\d{2})/)
               
               if (timeMatch) {
-                let hours = parseInt(timeMatch[1])
+                const hours = parseInt(timeMatch[1])
                 const minutes = parseInt(timeMatch[2])
                 
-                // Add 3 hours to convert from Oddslot time to actual time
-                hours = (hours + 3) % 24
+                // Oddslot shows times in GMT+3 (EAT - East Africa Time)
+                // We need to convert to UTC by SUBTRACTING 3 hours
+                const utcHours = (hours - 3 + 24) % 24 // Handle negative hours
+                const needsDayAdjustment = hours < 3 // If original time was 00-02, we go to previous day in UTC
                 
                 if (kickoffTime.toLowerCase().includes('today')) {
-                  matchDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+                  matchDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), utcHours, minutes))
+                  if (needsDayAdjustment) {
+                    matchDate.setUTCDate(matchDate.getUTCDate() - 1)
+                  }
                 } else if (kickoffTime.toLowerCase().includes('tomorrow')) {
-                  const tomorrow = new Date(now)
-                  tomorrow.setDate(tomorrow.getDate() + 1)
-                  matchDate = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), hours, minutes)
+                  matchDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, utcHours, minutes))
+                  if (needsDayAdjustment) {
+                    matchDate.setUTCDate(matchDate.getUTCDate() - 1)
+                  }
                 } else if (kickoffTime.match(/\d{2}\/\d{2}/)) {
                   const datePart = kickoffTime.split(' ')[0]
                   const [month, day] = datePart.split('/')
-                  matchDate = new Date(now.getFullYear(), parseInt(month) - 1, parseInt(day), hours, minutes)
+                  matchDate = new Date(Date.UTC(now.getUTCFullYear(), parseInt(month) - 1, parseInt(day), utcHours, minutes))
+                  if (needsDayAdjustment) {
+                    matchDate.setUTCDate(matchDate.getUTCDate() - 1)
+                  }
                 } else {
-                  matchDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+                  matchDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), utcHours, minutes))
+                  if (needsDayAdjustment) {
+                    matchDate.setUTCDate(matchDate.getUTCDate() - 1)
+                  }
                 }
               } else {
                 matchDate = new Date()
