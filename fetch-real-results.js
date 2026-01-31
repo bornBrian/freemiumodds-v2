@@ -70,12 +70,23 @@ function teamsMatch(searchName, resultName) {
   
   // Direct match
   if (search === result) return true
+  if (search.includes(result) || result.includes(search)) return true
   
   // Get first significant word (usually the main team name)
   const searchWords = search.split(' ').filter(w => w.length > 2)
   const resultWords = result.split(' ').filter(w => w.length > 2)
   
-  // Check if any significant word matches (at least 2 matches for accuracy)
+  // If only 1 word, just check if it matches
+  if (searchWords.length === 1 || resultWords.length === 1) {
+    for (const sw of searchWords) {
+      for (const rw of resultWords) {
+        if (sw.includes(rw) || rw.includes(sw)) return true
+      }
+    }
+    return false
+  }
+  
+  // Check if any significant word matches (at least 2 matches for multi-word teams)
   let matches = 0
   for (const sw of searchWords) {
     for (const rw of resultWords) {
@@ -107,17 +118,23 @@ for (const match of matches) {
     
     let eventId = null
     const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
+    // Also check yesterday and tomorrow (±1 day) in case of timezone issues
+    const matchTimestamp = new Date(match.kickoff).getTime()
+    const oneDayMs = 86400000
     
     for (const query of searchQueries) {
       if (eventId) break // Already found
       
       const searchQuery = encodeURIComponent(query)
-      const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+      
+      // Use RapidAPI SofaScore endpoint
+      const searchUrl = `https://sofascore.p.rapidapi.com/search?q=${searchQuery}`
       
       const response = await fetch(searchUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
+          'x-rapidapi-host': 'sofascore.p.rapidapi.com',
+          'x-rapidapi-key': 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
       })
       
@@ -130,11 +147,12 @@ for (const match of matches) {
           if (result.type === 'event' && result.entity) {
             const event = result.entity
             
-            // Check if date matches
-            const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
-            if (eventDate !== matchDate) continue
+            // Check if date matches (allow ±1 day for timezone differences)
+            const eventTimestamp = event.startTimestamp * 1000
+            const timeDiff = Math.abs(eventTimestamp - matchTimestamp)
+            if (timeDiff > oneDayMs) continue
             
-            // Use fuzzy team matching
+            // Use fuzzy team matching - be more lenient
             const homeMatch = teamsMatch(match.home, event.homeTeam?.name || '')
             const awayMatch = teamsMatch(match.away, event.awayTeam?.name || '')
             
@@ -152,12 +170,13 @@ for (const match of matches) {
     }
     
     if (eventId) {
-      // Fetch detailed match data using event ID
-      const detailUrl = `https://www.sofascore.com/api/v1/event/${eventId}`
+      // Fetch detailed match data using event ID - use RapidAPI
+      const detailUrl = `https://sofascore.p.rapidapi.com/matches/get-detail?eventId=${eventId}`
       const detailResponse = await fetch(detailUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
+          'x-rapidapi-host': 'sofascore.p.rapidapi.com',
+          'x-rapidapi-key': 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
       })
       

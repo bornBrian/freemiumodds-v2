@@ -310,12 +310,15 @@ router.all('/update-results', async (req, res) => {
           if (eventId) break
           
           const searchQuery = encodeURIComponent(query)
-          const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+          
+          // Use RapidAPI SofaScore endpoint
+          const searchUrl = `https://sofascore.p.rapidapi.com/search?q=${searchQuery}`
           
           const response = await fetch(searchUrl, {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': 'application/json'
+              'x-rapidapi-host': 'sofascore.p.rapidapi.com',
+              'x-rapidapi-key': process.env.RAPIDAPI_KEY || 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
           })
           
@@ -347,13 +350,14 @@ router.all('/update-results', async (req, res) => {
           await new Promise(resolve => setTimeout(resolve, 300))
         }
         
-        // Get detailed score
+        // Get detailed score - use RapidAPI
         if (eventId) {
-          const detailUrl = `https://www.sofascore.com/api/v1/event/${eventId}`
+          const detailUrl = `https://sofascore.p.rapidapi.com/matches/get-detail?eventId=${eventId}`
           const detailResponse = await fetch(detailUrl, {
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Accept': 'application/json'
+              'x-rapidapi-host': 'sofascore.p.rapidapi.com',
+              'x-rapidapi-key': process.env.RAPIDAPI_KEY || 'fec633af79mshf7000f109cc0255p1b5e39jsn10b0eb338982',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
           })
           
