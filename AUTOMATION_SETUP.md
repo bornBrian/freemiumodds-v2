@@ -75,9 +75,11 @@ View execution logs at: https://vercel.com/your-project/logs
 ### Throughout the Day (Every 2 hours)
 ```
 1. Vercel calls: /api/scheduler/update
-2. Runs Oddslot scraper
-3. Updates match predictions and confidence
-4. Saves updated tips to database
+2. FIRST: Checks for any NEW matches for today
+3. Adds new matches to database (if found)
+4. THEN: Runs Oddslot scraper on ALL matches
+5. Updates match predictions and confidence
+6. Saves updated tips to database
 ```
 
 ### Continuous (Every 30 minutes)
@@ -93,6 +95,7 @@ View execution logs at: https://vercel.com/your-project/logs
 
 - **Zero Manual Work** - Everything runs automatically
 - **Always Up-to-Date** - Fresh predictions every 2 hours
+- **Catches New Matches** - Checks every 2 hours for matches added late
 - **Real Results** - Auto-fetched from SofaScore
 - **Free Hosting** - Vercel Hobby plan includes cron jobs
 - **Reliable** - Vercel handles scheduling and execution
@@ -123,7 +126,7 @@ curl https://your-app.vercel.app/api/scheduler/update-results
 
 ### Expected Behavior
 - **Morning**: New matches appear after 6 AM
-- **Every 2 Hours**: Confidence scores and tips update
+- **Every 2 Hours**: Confidence scores and tips update + NEW matches added if available
 - **Every 30 Minutes**: Finished matches get results
 
 ## 🚨 Troubleshooting

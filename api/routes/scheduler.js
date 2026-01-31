@@ -8,13 +8,81 @@ const router = express.Router()
 
 /**
  * GET/POST /api/scheduler/update
- * Trigger Oddslot auto-update (used by Vercel Cron)
+ * Trigger Oddslot auto-update + fetch any new matches (used by Vercel Cron)
  */
 router.all('/update', async (req, res) => {
   try {
     console.log('🔄 [SCHEDULER] Auto-update triggered at', new Date().toISOString())
     
-    // Run the auto-update
+    let newMatchesCount = 0
+    
+    // Step 1: Check for and fetch any NEW matches for today that aren't in database yet
+    if (isSupabaseConfigured()) {
+      try {
+        console.log('📅 [SCHEDULER] Checking for new matches...')
+        const today = new Date().toISOString().split('T')[0]
+        
+        // Fetch odds from API for today
+        const oddsData = await fetchOddsFromAPI(today)
+        
+        if (oddsData && oddsData.length > 0) {
+          console.log(`📊 [SCHEDULER] Found ${oddsData.length} matches from API`)
+          
+          // Get existing match IDs from database
+          const { data: existingMatches } = await supabase
+            .from('matches')
+            .select('provider_match_id')
+            .gte('kickoff', today)
+            .lt('kickoff', new Date(Date.now() + 86400000).toISOString().split('T')[0])
+          
+          const existingIds = new Set(existingMatches?.map(m => m.provider_match_id) || [])
+          
+          // Find NEW matches not in database
+          const newMatches = oddsData.filter(event => !existingIds.has(event.id))
+          
+          if (newMatches.length > 0) {
+            console.log(`✨ [SCHEDULER] Found ${newMatches.length} NEW matches to add`)
+            
+            // Add new matches to database
+            for (const event of newMatches) {
+              const odds1X2 = extract1X2Odds(event.bookmakers)
+              if (!odds1X2) continue
+              
+              const doubleChance = toDoubleChanceOdds(odds1X2)
+              
+              const matchData = {
+                provider_match_id: event.id,
+                home: event.home_team,
+                away: event.away_team,
+                league: event.sport_title || event.sport_key,
+                kickoff: event.commence_time,
+                status: 'pending',
+                confidence: 84,
+                tip: null,
+                double_chance: doubleChance,
+                bookmaker: odds1X2.bookmaker,
+                created_at: new Date().toISOString()
+              }
+              
+              await supabase
+                .from('matches')
+                .upsert(matchData, { onConflict: 'provider_match_id' })
+              
+              newMatchesCount++
+            }
+            
+            console.log(`✅ [SCHEDULER] Added ${newMatchesCount} new matches`)
+          } else {
+            console.log('✅ [SCHEDULER] No new matches found')
+          }
+        }
+      } catch (fetchError) {
+        console.error('⚠️  [SCHEDULER] Error fetching new matches:', fetchError.message)
+        // Continue with Oddslot update even if fetch fails
+      }
+    }
+    
+    // Step 2: Run the Oddslot auto-update for all matches
     await runAutoUpdate()
     
     console.log('✅ [SCHEDULER] Auto-update completed successfully')
@@ -22,6 +90,7 @@ router.all('/update', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Auto-update completed',
+      newMatchesAdded: newMatchesCount,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
