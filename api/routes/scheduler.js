@@ -143,4 +143,156 @@ router.post('/update-statuses', async (req, res) => {
   }
 })
 
+/**
+ * GET/POST /api/scheduler/update-results
+ * AUTO-UPDATE match results from SofaScore (for Vercel Cron)
+ */
+router.all('/update-results', async (req, res) => {
+  try {
+    console.log('🔄 [RESULTS] Auto-updating results at', new Date().toISOString())
+    
+    if (!isSupabaseConfigured()) {
+      return res.json({ message: 'Database not configured', updated: 0 })
+    }
+
+    // Get matches that should be finished (2+ hours after kickoff)
+    const twoHoursAgo = new Date(Date.now() - 120 * 60 * 1000).toISOString()
+    const { data: matches, error: fetchError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('status', 'pending')
+      .lt('kickoff', twoHoursAgo)
+      .limit(20) // Process max 20 matches per run to stay within timeout
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    if (!matches || matches.length === 0) {
+      console.log('✅ [RESULTS] No matches need updating')
+      return res.json({ message: 'No matches to update', updated: 0 })
+    }
+
+    console.log(`📊 [RESULTS] Processing ${matches.length} matches`)
+
+    let updated = 0
+    let won = 0
+    let lost = 0
+
+    // Process matches
+    for (const match of matches) {
+      try {
+        // Search SofaScore
+        const searchQuery = encodeURIComponent(`${match.home} ${match.away}`)
+        const searchUrl = `https://www.sofascore.com/api/v1/search/all?q=${searchQuery}`
+        
+        const response = await fetch(searchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+          }
+        })
+        
+        if (!response.ok) continue
+        
+        const data = await response.json()
+        const matchDate = new Date(match.kickoff).toISOString().split('T')[0]
+        let eventId = null
+        
+        // Find match in results
+        if (data.results) {
+          for (const result of data.results) {
+            if (result.type === 'event' && result.entity) {
+              const event = result.entity
+              const eventDate = new Date(event.startTimestamp * 1000).toISOString().split('T')[0]
+              
+              if (eventDate === matchDate && event.status?.type === 'finished') {
+                const homeMatch = event.homeTeam?.name?.toLowerCase().includes(match.home.toLowerCase().split(' ')[0])
+                const awayMatch = event.awayTeam?.name?.toLowerCase().includes(match.away.toLowerCase().split(' ')[0])
+                
+                if (homeMatch && awayMatch) {
+                  eventId = event.id
+                  break
+                }
+              }
+            }
+          }
+        }
+        
+        // Get detailed score
+        if (eventId) {
+          const detailUrl = `https://www.sofascore.com/api/v1/event/${eventId}`
+          const detailResponse = await fetch(detailUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Accept': 'application/json'
+            }
+          })
+          
+          if (detailResponse.ok) {
+            const matchData = await detailResponse.json()
+            const event = matchData.event
+            
+            if (event.homeScore && event.awayScore) {
+              const homeScore = event.homeScore.current || event.homeScore.display
+              const awayScore = event.awayScore.current || event.awayScore.display
+              const finalScore = `${homeScore}-${awayScore}`
+              
+              // Validate prediction
+              const tip = match.tip || match.best_pick
+              let result = 'lost'
+              
+              if (tip === '1X' && homeScore >= awayScore) result = 'won'
+              else if (tip === 'X2' && awayScore >= homeScore) result = 'won'
+              else if (tip === '12' && homeScore !== awayScore) result = 'won'
+              
+              // Update database
+              await supabase
+                .from('matches')
+                .update({
+                  status: 'completed',
+                  result: result,
+                  final_score: finalScore
+                })
+                .eq('id', match.id)
+              
+              updated++
+              if (result === 'won') won++
+              else lost++
+              
+              console.log(`   ${result === 'won' ? '✅' : '❌'} ${match.home} vs ${match.away}: ${finalScore}`)
+            }
+          }
+        }
+        
+        // Delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1500))
+        
+      } catch (err) {
+        console.error(`Error processing match ${match.id}:`, err.message)
+      }
+    }
+
+    console.log(`✅ [RESULTS] Updated ${updated} matches (Won: ${won}, Lost: ${lost})`)
+    
+    res.json({ 
+      success: true,
+      updated,
+      won,
+      lost,
+      winRate: updated > 0 ? Math.round((won / updated) * 100) : 0,
+      timestamp: new Date().toISOString()
+    })
+    
+  } catch (error) {
+    console.error('❌ [RESULTS] Update failed:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
+})
+
 export default router
+

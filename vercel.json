@@ -9,5 +9,19 @@
       "memory": 1024,
       "maxDuration": 10
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/scheduler/fetch-daily",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/scheduler/update",
+      "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/scheduler/update-results",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }
