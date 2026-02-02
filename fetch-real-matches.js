@@ -51,9 +51,17 @@ async function fetchRealMatches() {
       }
       
       const data = await response.json()
-      console.log(`✅ Found ${data.length} matches for ${sport}`)
       
-      for (const match of data) {
+      // Filter for today only (Feb 2, 2026)
+      const today = new Date('2026-02-02')
+      const todayMatches = data.filter(match => {
+        const matchDate = new Date(match.commence_time)
+        return matchDate.toDateString() === today.toDateString()
+      })
+      
+      console.log(`✅ Found ${todayMatches.length} matches today for ${sport}`)
+      
+      for (const match of todayMatches) {
         const bookmaker = match.bookmakers[0]
         if (!bookmaker) continue
         
