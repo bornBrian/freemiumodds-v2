@@ -239,7 +239,7 @@ router.all('/update-results', async (req, res) => {
       .select('*')
       .eq('status', 'pending')
       .lt('kickoff', twoHoursAgo)
-      .limit(20) // Process max 20 matches per run to stay within timeout
+      .limit(50) // Process max 50 matches per run
 
     if (fetchError) {
       throw fetchError
@@ -255,7 +255,10 @@ router.all('/update-results', async (req, res) => {
     let updated = 0
     let won = 0
     let lost = 0
+    let noData = 0
     const sources = {}
+    
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     // Process matches using multi-API fetcher
     for (const match of matches) {
@@ -291,6 +294,19 @@ router.all('/update-results', async (req, res) => {
           sources[result.source] = (sources[result.source] || 0) + 1
           
           console.log(`   ${predictionResult === 'won' ? '✅' : '❌'} ${match.home} vs ${match.away}: ${finalScore} (${result.source})`)
+        } else if (match.kickoff < twentyFourHoursAgo) {
+          // If no result after 24 hours, mark as no_data (don't count in win rate)
+          await supabase
+            .from('matches')
+            .update({
+              status: 'no_data',
+              result: 'no_data',
+              final_score: null
+            })
+            .eq('id', match.id)
+          
+          noData++
+          console.log(`   ⚠️  ${match.home} vs ${match.away}: No data available (24h+)`)
         }
         
         // Small delay to avoid rate limiting
@@ -301,7 +317,7 @@ router.all('/update-results', async (req, res) => {
       }
     }
 
-    console.log(`✅ [RESULTS] Updated ${updated} matches (Won: ${won}, Lost: ${lost})`)
+    console.log(`✅ [RESULTS] Updated ${updated} matches (Won: ${won}, Lost: ${lost}, No Data: ${noData})`)
     console.log(`📡 [SOURCES]`, sources)
     
     res.json({ 
@@ -309,6 +325,7 @@ router.all('/update-results', async (req, res) => {
       updated,
       won,
       lost,
+      noData,
       winRate: updated > 0 ? Math.round((won / updated) * 100) : 0,
       sources,
       timestamp: new Date().toISOString()
