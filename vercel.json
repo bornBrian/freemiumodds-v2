@@ -13,15 +13,15 @@
   "crons": [
     {
       "path": "/api/scheduler/fetch-daily",
-      "schedule": "0 0,6,12,18 * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/scheduler/update",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/scheduler/update-results",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     }
   ]
 }
