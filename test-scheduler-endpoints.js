@@ -3,7 +3,7 @@
  * This will manually trigger your Vercel cron job endpoints
  */
 
-const YOUR_VERCEL_URL = 'https://your-app.vercel.app' // CHANGE THIS!
+const YOUR_VERCEL_URL = 'https://freemiumodds-v2-ss3b.vercel.app'
 
 async function testEndpoints() {
   console.log('🧪 Testing Scheduler Endpoints...\n')
