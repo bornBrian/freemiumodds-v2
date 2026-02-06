@@ -57,13 +57,7 @@ async function updateMatchResults() {
       })
       
       if (!response.ok) {
-        console.log(`   ⚠️  SofaScore API error - marking as won based on confidence`)
-        // Fallback to confidence-based result
-        const willWin = Math.random() * 100 < (match.confidence || 85)
-        await updateMatch(match, willWin ? 'won' : 'lost', null)
-        if (willWin) won++
-        else lost++
-        updated++
+        console.log(`   ⚠️  SofaScore API error - skipping until real data available`)
         continue
       }
       
@@ -130,12 +124,7 @@ async function updateMatchResults() {
           }
         }
       } else {
-        console.log(`   ⚠️  Match not found - marking as won based on confidence`)
-        const willWin = Math.random() * 100 < (match.confidence || 85)
-        await updateMatch(match, willWin ? 'won' : 'lost', null)
-        if (willWin) won++
-        else lost++
-        updated++
+        console.log(`   ⚠️  Match not found on SofaScore - will retry later`)
       }
       
     } catch (error) {
@@ -144,13 +133,7 @@ async function updateMatchResults() {
       const willWin = Math.random() * 100 < (match.confidence || 85)
       await updateMatch(match, willWin ? 'won' : 'lost', null)
       if (willWin) won++
-      else lost++
-      updated++
-    }
-    
-    // Rate limiting delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-  }
+      else lost++ - will retry later`)
   
   console.log(`\n📊 Summary:`)
   console.log(`   Updated: ${updated} matches`)
