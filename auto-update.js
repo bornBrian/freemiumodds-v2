@@ -49,70 +49,107 @@ export async function fetchNewMatches() {
   
   let allMatches = []
   const today = new Date().toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   
-  for (const [leagueId, leagueName] of Object.entries(LEAGUES)) {
-    try {
-      // Fetch matches for today and tomorrow
-      for (const date of [today, tomorrow]) {
-        const url = `https://v3.football.api-sports.io/fixtures?league=${leagueId}&date=${date}&timezone=UTC`
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': API_FOOTBALL_KEY,
-            'x-rapidapi-host': 'v3.football.api-sports.io'
-          }
-        })
-        
-        if (!response.ok) {
-          console.log(`⚠️  Failed to fetch ${leagueName}: ${response.statusText}`)
-          continue
-        }
-        
-        const data = await response.json()
-        
-        if (data.results === 0) continue
-        
-        console.log(`✅ Found ${data.results} matches for ${leagueName} on ${date}`)
-        
-        for (const match of data.response) {
-          // Only include matches that haven't started yet
-          if (match.fixture.status.short !== 'NS') continue
-          
-          // Default double chance odds (would need paid API for real odds)
-          const defaultOdds = {
-            '1X': 1.50,
-            'X2': 1.50,
-            '12': 1.35
-          }
-          
-          const confidence = Math.floor(Math.random() * 9) + 84
-          const tips = ['1X', 'X2', '12']
-          const bestPick = tips[Math.floor(Math.random() * tips.length)]
-          
-          allMatches.push({
-            provider_match_id: `api-football-${match.fixture.id}`,
-            home: match.teams.home.name,
-            away: match.teams.away.name,
-            league: leagueName,
-            kickoff: match.fixture.date,
-            status: 'pending',
-            confidence: confidence,
-            tip: bestPick,
-            best_pick: bestPick,
-            double_chance: defaultOdds,
-            bookmaker: 'API-Football',
-            fixture_id: match.fixture.id
-          })
-        }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500))
+  try {
+    // Fetch ALL matches for today (not limited to specific leagues)
+    const url = `https://v3.football.api-sports.io/fixtures?date=${today}&timezone=UTC`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': API_FOOTBALL_KEY,
+        'x-rapidapi-host': 'v3.football.api-sports.io'
       }
-    } catch (error) {
-      console.error(`❌ Error fetching ${leagueName}:`, error.message)
+    })
+    
+    if (!response.ok) {
+      console.log(`⚠️  Failed to fetch matches: ${response.statusText}`)
+      return 0
     }
+    
+    const data = await response.json()
+    
+    if (data.results === 0) {
+      console.log('⚠️  No matches found for today')
+      return 0
+    }
+    
+    console.log(`✅ Found ${data.results} total matches for ${today}`)
+    
+    // Filter for major leagues and upcoming matches only
+    const majorLeagues = [
+      'Premier League', 'Championship', 'League One', 'League Two',
+      'La Liga', 'Segunda División',
+      'Bundesliga', '2. Bundesliga',
+      'Serie A', 'Serie B',
+      'Ligue 1', 'Ligue 2',
+      'Eredivisie',
+      'Primeira Liga',
+      'UEFA Champions League', 'UEFA Europa League',
+      'AFC Champions League',
+      'FA Cup', 'League Cup', 'Copa del Rey', 'DFB Pokal', 'Coppa Italia'
+    ]
+    
+    let processedCount = 0
+    
+    for (const match of data.response) {
+      // Only include matches that haven't started yet
+      if (match.fixture.status.short !== 'NS') continue
+      
+      // Prioritize major leagues, but include others too
+      const isMajor = majorLeagues.includes(match.league.name)
+      
+      // Skip low-tier youth/amateur leagues unless they're major
+      if (!isMajor && (
+        match.league.name.includes('U17') ||
+        match.league.name.includes('U18') ||
+        match.league.name.includes('U19') ||
+        match.league.name.includes('U20') ||
+        match.league.name.includes('U21') ||
+        match.league.name.toLowerCase().includes('amateur')
+      )) {
+        continue
+      }
+      
+      // Default double chance odds
+      const defaultOdds = {
+        '1X': 1.50,
+        'X2': 1.50,
+        '12': 1.35
+      }
+      
+      // Higher confidence for major leagues
+      const confidence = isMajor 
+        ? Math.floor(Math.random() * 9) + 86  // 86-94%
+        : Math.floor(Math.random() * 7) + 82  // 82-88%
+      
+      const tips = ['1X', 'X2', '12']
+      const bestPick = tips[Math.floor(Math.random() * tips.length)]
+      
+      allMatches.push({
+        provider_match_id: `api-football-${match.fixture.id}`,
+        home: match.teams.home.name,
+        away: match.teams.away.name,
+        league: match.league.name,
+        kickoff: match.fixture.date,
+        status: 'pending',
+        confidence: confidence,
+        tip: bestPick,
+        best_pick: bestPick,
+        double_chance: defaultOdds,
+        bookmaker: 'API-Football'
+      })
+      
+      processedCount++
+      
+      // Limit to 50 matches to avoid overwhelming the database
+      if (processedCount >= 50) break
+    }
+    
+    console.log(`📊 Processed ${processedCount} upcoming matches`)
+    
+  } catch (error) {
+    console.error(`❌ Error fetching matches:`, error.message)
   }
   
   if (allMatches.length > 0) {
@@ -123,10 +160,21 @@ export async function fetchNewMatches() {
     if (error) {
       console.error('❌ Error saving matches:', error.message)
     } else {
-      console.log(`✅ [AUTO] Saved ${allMatches.length} matches`)
+      console.log(`✅ [AUTO] Saved ${allMatches.length} new matches to database`)
+      
+      // Show sample of what was added
+      const sampleSize = Math.min(5, allMatches.length)
+      console.log(`\n📋 Sample matches added:`)
+      allMatches.slice(0, sampleSize).forEach((m, i) => {
+        const time = new Date(m.kickoff).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        console.log(`   ${i + 1}. ${m.home} vs ${m.away} | ${m.league} | ${time}`)
+      })
+      if (allMatches.length > sampleSize) {
+        console.log(`   ... and ${allMatches.length - sampleSize} more`)
+      }
     }
   } else {
-    console.log('⚠️  No new matches found for today/tomorrow')
+    console.log('⚠️  No new upcoming matches found for today')
   }
   
   return allMatches.length
@@ -164,9 +212,14 @@ export async function updateMatchResults() {
   
   for (const match of pendingMatches) {
     try {
-      // First try API-Football direct lookup if we have fixture_id
-      if (match.fixture_id) {
-        const url = `https://v3.football.api-sports.io/fixtures?id=${match.fixture_id}`
+      // Try to extract fixture_id from provider_match_id
+      const fixtureId = match.provider_match_id?.includes('api-football-') 
+        ? match.provider_match_id.split('api-football-')[1]
+        : null
+      
+      // First try API-Football direct lookup if we have fixture ID
+      if (fixtureId) {
+        const url = `https://v3.football.api-sports.io/fixtures?id=${fixtureId}`
         
         const response = await fetch(url, {
           method: 'GET',
